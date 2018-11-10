@@ -5,15 +5,15 @@
 
 #ifdef _WIN64
 #ifdef _DEBUG
-#pragma comment(lib,"..\\minhook\\build\\VC15\\bin\\Debug\\MinHook.x64.lib")
+#pragma comment(lib,"..\\minhook\\build\\VC15\\lib\\Debug\\libMinHook.x64.lib")
 #else
-#pragma comment(lib,"..\\minhook\\build\\VC15\\bin\\Release\\MinHook.x64.lib")
+#pragma comment(lib,"..\\minhook\\build\\VC15\\lib\\Release\\libMinHook.x64.lib")
 #endif
 #else
 #ifdef _DEBUG
-#pragma comment(lib,"..\\minhook\\build\\VC15\\bin\\Debug\\MinHook.x86.lib")
+#pragma comment(lib,"..\\minhook\\build\\VC15\\lib\\Debug\\libMinHook.x86.lib")
 #else
-#pragma comment(lib,"..\\minhook\\build\\VC15\\bin\\Release\\MinHook.x86.lib")
+#pragma comment(lib,"..\\minhook\\build\\VC15\\lib\\Release\\libMinHook.x86.lib")
 #endif
 #endif
 

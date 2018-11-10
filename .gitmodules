@@ -1,3 +1,9 @@
 [submodule "minhook"]
 	path = minhook
 	url = https://github.com/TsudaKageyu/minhook
+[submodule "DirectXTK"]
+	path = DirectXTK
+	url = https://github.com/Microsoft/DirectXTK
+[submodule "DirectXTex"]
+	path = DirectXTex
+	url = https://github.com/Microsoft/DirectXTex

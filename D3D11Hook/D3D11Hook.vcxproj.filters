@@ -21,9 +21,15 @@
     <ClCompile Include="hook.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
+    <ClCompile Include="ResLoader.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="custom_present.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="ResLoader.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>
