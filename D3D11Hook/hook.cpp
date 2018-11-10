@@ -1,19 +1,19 @@
 #include<Windows.h>
 #include<d3d11.h>
-#include"include\MinHook.h"
+#include"..\minhook\include\MinHook.h"
 #pragma comment(lib,"d3d11.lib")
 
 #ifdef _WIN64
 #ifdef _DEBUG
-#pragma comment(lib,"lib\\libMinHook-x64-v141-mdd.lib")
+#pragma comment(lib,"..\\minhook\\build\\VC15\\bin\\Debug\\MinHook.x64.lib")
 #else
-#pragma comment(lib,"lib\\libMinHook-x64-v141-md.lib")
+#pragma comment(lib,"..\\minhook\\build\\VC15\\bin\\Release\\MinHook.x64.lib")
 #endif
 #else
 #ifdef _DEBUG
-#pragma comment(lib,"lib\\libMinHook-x86-v141-mdd.lib")
+#pragma comment(lib,"..\\minhook\\build\\VC15\\bin\\Debug\\MinHook.x86.lib")
 #else
-#pragma comment(lib,"lib\\libMinHook-x86-v141-md.lib")
+#pragma comment(lib,"..\\minhook\\build\\VC15\\bin\\Release\\MinHook.x86.lib")
 #endif
 #endif
 
