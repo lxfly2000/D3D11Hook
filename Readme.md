@@ -26,6 +26,16 @@
   * 如果你想在直播或录像中将Hook在左上角添加的FPS文字也包括进去，需要在OBS的来源→右键游戏捕获→属性中将“捕获第三方（如：steam）覆盖”项目钩选。
 * 其他软件暂未测试，不过也推荐先启动录像/直播软件再开启Hook。
 
+# ⚠特别注意⚠
+如果启动的游戏是以管理员启动的，那么DLL加载工具同样需要以管理员启动，否则Hook会没有效果。
+
+## 实测运行情况
+* [dxtkwithd2d 测试程序](https://github.com/lxfly2000/dxtkwithd2d)：正常显示
+* [Puyo Puyo Tetris](http://puyo.sega.com/tetris/)：正常显示
+* 我自己写的一个很简单的 D3D11 程序：可能是程序不够严谨，在启动Hook的时候程序画面异常，无法正常显示原有的内容
+* [OBS Studio](https://obsproject.com/)：会在程序部分控件上看到FPS的文字，也算作是正常显示
+* [Unity](https://unity3d.com)及Unity引擎制作的游戏：部分UI区域会无法及时更新但场景没有问题
+
 ## 制作
 [lxfly2000](https://github.com/lxfly2000)
 
