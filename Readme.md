@@ -35,6 +35,7 @@
 * 我自己写的一个很简单的 D3D11 程序：可能是程序不够严谨，在启动Hook的时候程序画面异常，无法正常显示原有的内容
 * [OBS Studio](https://obsproject.com/)：会在程序部分控件上看到FPS的文字，也算作是正常显示
 * [Unity](https://unity3d.com)及Unity引擎制作的游戏：部分UI区域会无法及时更新但场景没有问题
+* [DxLib](http://dxlib.o.oo7.jp)制作的游戏：正常显示，但是在调整窗口大小后会无法显示且切换全屏时卡死
 
 ## 制作
 [lxfly2000](https://github.com/lxfly2000)
