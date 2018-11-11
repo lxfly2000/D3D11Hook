@@ -87,6 +87,7 @@ public:
 #pragma endregion
 #pragma region ÓÃSpriteBatch»æÖÆ
 		spriteBatch->Begin();
+		spriteFont->DrawString(spriteBatch.get(), fpstext, DirectX::SimpleMath::Vector2(textpos.x + 2.0f, textpos.y + 2.0f), DirectX::Colors::Gray, 0.0f, textanchorpos);
 		spriteFont->DrawString(spriteBatch.get(), fpstext, textpos, DirectX::Colors::White, 0.0f, textanchorpos);
 		spriteBatch->End();
 #pragma endregion

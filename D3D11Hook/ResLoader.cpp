@@ -8,23 +8,7 @@
 #include "..\DirectXTK\Inc\ScreenGrab.h"
 #include "..\DirectXTex\DirectXTex\DirectXTex.h"
 
-#ifdef _WIN64
-#ifdef _DEBUG
-#pragma comment(lib,"..\\DirectXTK\\Bin\\Desktop_2017\\x64\\Debug\\DirectXTK.lib")
-#pragma comment(lib,"..\\DirectXTex\\DirectXTex\\Bin\\Desktop_2017\\x64\\Debug\\DirectXTex.lib")
-#else
-#pragma comment(lib,"..\\DirectXTK\\Bin\\Desktop_2017\\x64\\Release\\DirectXTK.lib")
-#pragma comment(lib,"..\\DirectXTK\\DirectXTex\\Bin\\Desktop_2017\\x64\\Release\\DirectXTex.lib")
-#endif
-#else
-#ifdef _DEBUG
-#pragma comment(lib,"..\\DirectXTK\\Bin\\Desktop_2017\\Win32\\Debug\\DirectXTK.lib")
-#pragma comment(lib,"..\\DirectXTK\\DirectXTex\\Bin\\Desktop_2017\\Win32\\Debug\\DirectXTex.lib")
-#else
-#pragma comment(lib,"..\\DirectXTK\\Bin\\Desktop_2017\\Win32\\Release\\DirectXTK.lib")
-#pragma comment(lib,"..\\DirectXTK\\DirectXTex\\Bin\\Desktop_2017\\Win32\\Debug\\DirectXTex.lib")
-#endif
-#endif
+#pragma comment(lib,"d3d11.lib")
 #pragma comment(lib,"dwrite.lib")
 #pragma comment(lib,"d2d1.lib")
 #pragma comment(lib,"shlwapi.lib")

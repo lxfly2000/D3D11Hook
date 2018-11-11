@@ -3,20 +3,6 @@
 #include"..\minhook\include\MinHook.h"
 #pragma comment(lib,"d3d11.lib")
 
-#ifdef _WIN64
-#ifdef _DEBUG
-#pragma comment(lib,"..\\minhook\\build\\VC15\\lib\\Debug\\libMinHook.x64.lib")
-#else
-#pragma comment(lib,"..\\minhook\\build\\VC15\\lib\\Release\\libMinHook.x64.lib")
-#endif
-#else
-#ifdef _DEBUG
-#pragma comment(lib,"..\\minhook\\build\\VC15\\lib\\Debug\\libMinHook.x86.lib")
-#else
-#pragma comment(lib,"..\\minhook\\build\\VC15\\lib\\Release\\libMinHook.x86.lib")
-#endif
-#endif
-
 #include"custom_present.h"
 
 typedef HRESULT(__stdcall*PFIDXGISwapChain_Present)(IDXGISwapChain*, UINT, UINT);
