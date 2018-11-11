@@ -15,15 +15,14 @@ public:
 	HRESULT LoadTextureFromFile(LPCWSTR fpath, ID3D11ShaderResourceView **pTex, int *pw, int *ph,
 		bool convertpmalpha = true);
 	//COM函数，加载系统中的字体到字体表，需要手动释放(delete)
-	//pCharacters：指定使用的字符，UTF16LE编码，如果不指定则为ASCII字符（32～127）
-	//注意字符串必须保持增序，必须含有替代字符（默认为“?”，可以用SetDefaultCharacter修改）。
+	//pszCharacters：指定使用的字符，UTF16LE编码，如果不指定则为ASCII字符（32～127）
 	//字体大小的单位为DIP（设备无关像素）
 	//pxBetweenChar：指示字符的水平+垂直间距，该参数是为了避免绘制出的字符重合而设置的，不会影响实际显示的间距。
 	//【注意】该字体表加载功能存在字符位置偏移的Bug，如果是ClearType看不出来但是如果字体在特定字号下是以点阵字符
 	//显示时就会非常明显，因此不推荐小字号字体使用。推荐使用Direct2D+DirectWrite排版系统绘制文字等矢量图形。
 	HRESULT LoadFontFromSystem(std::unique_ptr<DirectX::SpriteFont> &outSF, unsigned textureWidth,
 		unsigned textureHeight, LPCWSTR fontName, float fontSize, const D2D1_COLOR_F &fontColor,
-		DWRITE_FONT_WEIGHT fontWeight, wchar_t *pszCharacters = NULL, float pxBetweenChar = 1.0f,
+		DWRITE_FONT_WEIGHT fontWeight, LPCWSTR pszCharacters = NULL, float pxBetweenChar = 1.0f,
 		bool convertpmalpha = true);
 	//保存屏幕图像至文件(PNG)
 	HRESULT TakeScreenShotToFile(LPCWSTR fpath);

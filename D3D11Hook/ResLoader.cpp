@@ -224,7 +224,7 @@ HRESULT WicBitmapConvertPremultiplyAlpha(IWICBitmap *wicbitmap, ComPtr<IWICBitma
 //COM函数
 HRESULT ResLoader::LoadFontFromSystem(std::unique_ptr<SpriteFont> &outSF, unsigned textureWidth, unsigned textureHeight,
 	LPCWSTR fontName, float fontSize, const D2D1_COLOR_F &fontColor, DWRITE_FONT_WEIGHT fontWeight,
-	wchar_t *pszCharacters, float pxBetweenChar, bool convertpmalpha)
+	LPCWSTR pszCharacters, float pxBetweenChar, bool convertpmalpha)
 {
 	//这个字体加载真心是恶心得要死，以前有D3DX的时候还好点，到现在微软直接把字体支持完全给抛弃了！
 	ID2D1Factory *d2dfactory;
@@ -263,22 +263,17 @@ HRESULT ResLoader::LoadFontFromSystem(std::unique_ptr<SpriteFont> &outSF, unsign
 	SpriteFont::Glyph eachglyph;
 	ZeroMemory(&eachglyph, sizeof eachglyph);
 	float chHeight = 0.0f;//每行最大字符高度
-	wchar_t *usingCharacters;
-	int usingChSize;
+	std::wstring usingCharacters;
+	for (wchar_t i = ' '; i < 128; i++)
+		usingCharacters.append(1, i);
 	if (pszCharacters)
 	{
-		usingCharacters = pszCharacters;
-		usingChSize = lstrlen(usingCharacters);
-	}
-	else
-	{
-		usingChSize = 128 - ' ';
-		usingCharacters = new wchar_t[usingChSize];
-		for (int i = 0; i < usingChSize; i++)
-			usingCharacters[i] = ' ' + i;
+		usingCharacters.append(pszCharacters);
+		std::sort(usingCharacters.begin(), usingCharacters.end());
+		usingCharacters.erase(std::unique(usingCharacters.begin(), usingCharacters.end()), usingCharacters.end());
 	}
 	fontRT->BeginDraw();
-	for (int i = 0; i < usingChSize; i++)
+	for (size_t i = 0; i < usingCharacters.size(); i++)
 	{
 		eachglyph.Character = usingCharacters[i];
 		str[0] = usingCharacters[i];//DirectXTK不支持代理对，因此把字符直接当成16位数处理就行了。
@@ -305,9 +300,9 @@ HRESULT ResLoader::LoadFontFromSystem(std::unique_ptr<SpriteFont> &outSF, unsign
 		if (drawPos.y + chHeight > textureHeight)return -1;
 		eachglyph.Subrect.left = std::lround(drawPos.x);
 		eachglyph.Subrect.top = std::lround(drawPos.y);
-		//可绘制彩色文字（绘制彩色文字功能要求系统为Win8.1/10，在Win7中会使D2D区域无法显示）
+		//D2D1_DRAW_TEXT_OPTIONS_ENABLE_COLOR_FONT：可绘制彩色文字（绘制彩色文字功能要求系统为Win8.1/10，在Win7中会使D2D区域无法显示）
 		fontRT->DrawText(str, lstrlen(str), textformat, D2D1::RectF(drawPos.x + ovhMet.left, drawPos.y,
-			(float)textureWidth, (float)textureHeight), fontColorBrush, D2D1_DRAW_TEXT_OPTIONS_ENABLE_COLOR_FONT);
+			(float)textureWidth, (float)textureHeight), fontColorBrush, D2D1_DRAW_TEXT_OPTIONS_NONE);
 		float chPxWidth = textlayout->GetMaxWidth() + ovhMet.left + ovhMet.right;
 		drawPos.x += chPxWidth;
 		eachglyph.Subrect.right = std::lround(drawPos.x);
@@ -330,8 +325,6 @@ HRESULT ResLoader::LoadFontFromSystem(std::unique_ptr<SpriteFont> &outSF, unsign
 		textlayout->Release();
 	}
 	fontRT->EndDraw();
-	if (!pszCharacters)
-		delete usingCharacters;
 	//由图像生成材质
 	std::unique_ptr<BYTE> membitmap;
 	size_t memsize;

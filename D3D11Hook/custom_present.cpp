@@ -28,24 +28,31 @@ public:
 	{
 		ID3D11Device *pDevice;
 		C(pSC->GetDevice(__uuidof(ID3D11Device), (void**)&pDevice));
-		DXGI_SWAP_CHAIN_DESC d;
-		C(pSC->GetDesc(&d));
-		SetWindowText(d.OutputWindow, L"OK");
 		resloader.Init(pDevice);
 		resloader.SetSwapChain(pSC);
 		ID3D11DeviceContext *pContext;
 		pDevice->GetImmediateContext(&pContext);
 		spriteBatch = std::make_unique<DirectX::SpriteBatch>(pContext);
-		wchar_t usingChars[7] = L"?多瓦砸路！";
-		C(resloader.LoadFontFromSystem(spriteFont, 1024, 1024, L"宋体", 48, D2D1::ColorF(D2D1::ColorF::White), DWRITE_FONT_WEIGHT_REGULAR,usingChars));
+		C(resloader.LoadFontFromSystem(spriteFont, 1024, 1024, L"宋体", 48, D2D1::ColorF(D2D1::ColorF::White), DWRITE_FONT_WEIGHT_REGULAR));
 		textpos.x = textpos.y = 0.0f;
 		textanchorpos.x = textanchorpos.y = 0.0f;
 		return TRUE;
 	}
 	void Draw()
 	{
+		static unsigned t1 = 0, t2 = 0, fcount = 0;
+		static TCHAR fpstext[16];
+		if (fcount--==0)
+		{
+			fcount = 60;
+			t1 = t2;
+			t2 = GetTickCount();
+			if (t1 == t2)
+				t1--;
+			wsprintf(fpstext, TEXT("FPS:%3d"), 60000 / (t2 - t1));//注意wsprintf不支持浮点数格式化
+		}
 		spriteBatch->Begin();
-		spriteFont->DrawString(spriteBatch.get(), L"砸瓦路多！！", textpos, DirectX::Colors::White, 0.0f, textanchorpos);
+		spriteFont->DrawString(spriteBatch.get(), fpstext, textpos, DirectX::Colors::White, 0.0f, textanchorpos);
 		spriteBatch->End();
 	}
 };

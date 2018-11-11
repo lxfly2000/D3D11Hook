@@ -68,7 +68,8 @@ PFIDXGISwapChain_Present GetPresentVAddr()
 	return reinterpret_cast<PFIDXGISwapChain_Present>(p);
 }
 
-BOOL StartHook()
+//导出以方便在没有DllMain时调用
+extern "C" __declspec(dllexport) BOOL StartHook()
 {
 	pfPresent = reinterpret_cast<PFIDXGISwapChain_Present>(GetPresentVAddr());
 	if (MH_Initialize() != MH_OK)
@@ -80,7 +81,8 @@ BOOL StartHook()
 	return TRUE;
 }
 
-BOOL StopHook()
+//导出以方便在没有DllMain时调用
+extern "C" __declspec(dllexport) BOOL StopHook()
 {
 	if (MH_DisableHook(pfPresent) != MH_OK)
 		return FALSE;
@@ -113,13 +115,8 @@ BOOL WINAPI DllMain(HINSTANCE hInstDll, DWORD fdwReason, LPVOID lpvReserved)
 	return TRUE;
 }
 
-#ifdef _WIN64
-#pragma comment(linker,"/Export:HookProc")
-#else
-#pragma comment(linker,"/Export:HookProc=_HookProc@12")
-#endif
 //SetWindowHookEx需要一个导出函数，否则DLL不会被加载
-extern "C" LRESULT WINAPI HookProc(int code, WPARAM w, LPARAM l)
+extern "C" __declspec(dllexport) LRESULT WINAPI HookProc(int code, WPARAM w, LPARAM l)
 {
 	return CallNextHookEx(NULL, code, w, l);
 }
