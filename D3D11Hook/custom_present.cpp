@@ -25,12 +25,15 @@ public:
 	}
 	D2DCustomPresent(D2DCustomPresent &&other)
 	{
-		spriteFont = std::move(other.spriteFont);
+		spriteBatch = std::move(other.spriteBatch);
 		spriteFont = std::move(other.spriteFont);
 		textpos = std::move(other.textpos);
 		textanchorpos = std::move(other.textanchorpos);
 		resloader = std::move(other.resloader);
 		pContext = std::move(other.pContext);
+		t1 = std::move(other.t1);
+		t2 = std::move(other.t2);
+		fcount = std::move(other.fcount);
 	}
 	~D2DCustomPresent()
 	{
@@ -67,31 +70,33 @@ public:
 		}
 		//使用SpriteBatch会破坏之前的渲染器状态并且不会自动保存和恢复原状态，画图前应先保存原来的状态，完成后恢复
 		//参考：https://github.com/Microsoft/DirectXTK/wiki/SpriteBatch#state-management
+		//https://github.com/ocornut/imgui/blob/master/examples/imgui_impl_dx11.cpp#L130
+		//在我写的另一个程序里测试时发现只要运行Hook后不管是否停止都没法再画出三角形了，可能有的资源是无法恢复的吧
 #pragma region 获取原来的状态
 		ID3D11BlendState *blendState; FLOAT blendFactor[4]; UINT sampleMask;
 		ID3D11SamplerState *samplerStateVS0;
 		ID3D11DepthStencilState *depthStencilState; UINT stencilRef;
 		ID3D11Buffer *indexBuffer; DXGI_FORMAT indexBufferFormat; UINT indexBufferOffset;
-		//ID3D11InputLayout *inputLayout;
-		//ID3D11PixelShader *pixelShader; ID3D11ClassInstance *psClassInstances; UINT psNClassInstances;
+		ID3D11InputLayout *inputLayout;
+		ID3D11PixelShader *pixelShader; ID3D11ClassInstance *psClassInstances[256]; UINT psNClassInstances=256;
 		D3D11_PRIMITIVE_TOPOLOGY primitiveTopology;
 		ID3D11RasterizerState *rasterState;
-		//ID3D11SamplerState *samplerStatePS0;
+		ID3D11SamplerState *samplerStatePS0;
 		ID3D11ShaderResourceView *resourceViewPS0;
 		ID3D11Buffer *vb0; UINT stridesVB0, offsetVB0;
-		//ID3D11VertexShader *vertexShader; ID3D11ClassInstance *vsClassInstances; UINT vsNClassInstances;
+		ID3D11VertexShader *vertexShader; ID3D11ClassInstance *vsClassInstances[256]; UINT vsNClassInstances=256;
 		pContext->OMGetBlendState(&blendState, blendFactor, &sampleMask);
 		pContext->VSGetSamplers(0, 1, &samplerStateVS0);
 		pContext->OMGetDepthStencilState(&depthStencilState, &stencilRef);
 		pContext->IAGetIndexBuffer(&indexBuffer, &indexBufferFormat, &indexBufferOffset);
-		//pContext->IAGetInputLayout(&inputLayout);
-		//pContext->PSGetShader(&pixelShader, &psClassInstances, &psNClassInstances);
+		pContext->IAGetInputLayout(&inputLayout);//Need check
+		pContext->PSGetShader(&pixelShader, psClassInstances, &psNClassInstances);//Need check
 		pContext->IAGetPrimitiveTopology(&primitiveTopology);
 		pContext->RSGetState(&rasterState);
-		//pContext->PSGetSamplers(0, 1, &samplerStatePS0);
+		pContext->PSGetSamplers(0, 1, &samplerStatePS0);//Need check
 		pContext->PSGetShaderResources(0, 1, &resourceViewPS0);
 		pContext->IAGetVertexBuffers(0, 1, &vb0, &stridesVB0, &offsetVB0);
-		//pContext->VSGetShader(&vertexShader, &vsClassInstances, &vsNClassInstances);
+		pContext->VSGetShader(&vertexShader, vsClassInstances, &vsNClassInstances);//Need check
 #pragma endregion
 #pragma region 用SpriteBatch绘制
 		spriteBatch->Begin();
@@ -104,25 +109,14 @@ public:
 		pContext->VSSetSamplers(0, 1, &samplerStateVS0);
 		pContext->OMSetDepthStencilState(depthStencilState, stencilRef);
 		pContext->IASetIndexBuffer(indexBuffer, indexBufferFormat, indexBufferOffset);
-		//pContext->IASetInputLayout(inputLayout);
-		//pContext->PSSetShader(pixelShader, &psClassInstances, psNClassInstances);
+		pContext->IASetInputLayout(inputLayout);
+		pContext->PSSetShader(pixelShader, psClassInstances, psNClassInstances);
 		pContext->IASetPrimitiveTopology(primitiveTopology);
 		pContext->RSSetState(rasterState);
-		//pContext->PSSetSamplers(0, 1, &samplerStatePS0);
+		pContext->PSSetSamplers(0, 1, &samplerStatePS0);
 		pContext->PSSetShaderResources(0, 1, &resourceViewPS0);
 		pContext->IASetVertexBuffers(0, 1, &vb0, &stridesVB0, &offsetVB0);
-		//pContext->VSSetShader(vertexShader, &vsClassInstances, vsNClassInstances);
-		if(blendState)blendState->Release();
-		if(samplerStateVS0)samplerStateVS0->Release();
-		if(depthStencilState)depthStencilState->Release();
-		if(indexBuffer)indexBuffer->Release();
-		//if(inputLayout)inputLayout->Release();
-		//if(pixelShader)pixelShader->Release(); if(psClassInstances)psClassInstances->Release();
-		if(rasterState)rasterState->Release();
-		//if(samplerStatePS0)samplerStatePS0->Release();
-		if(resourceViewPS0)resourceViewPS0->Release();
-		if(vb0)vb0->Release();
-		//if(vertexShader)vertexShader->Release(); if(vsClassInstances)vsClassInstances->Release();
+		pContext->VSSetShader(vertexShader, vsClassInstances, vsNClassInstances);
 #pragma endregion
 	}
 };
