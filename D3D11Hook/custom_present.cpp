@@ -2,6 +2,8 @@
 #include"ResLoader.h"
 #include"..\DirectXTK\Inc\SimpleMath.h"
 #include<map>
+#include<string>
+#include<ctime>
 
 #ifdef _DEBUG
 #define C(x) if(FAILED(x)){MessageBox(NULL,TEXT(_CRT_STRINGIZE(x)),NULL,MB_ICONERROR);throw E_FAIL;}
@@ -18,7 +20,16 @@ private:
 	ResLoader resloader;
 	ID3D11DeviceContext *pContext;
 	unsigned t1, t2, fcount;
-	TCHAR fpstext[16];
+	std::wstring display_text;
+	int current_fps;
+	TCHAR time_text[32], fps_text[32];
+
+	TCHAR font_name[256], font_size[16],text_x[16],text_y[16],text_anchor_x[16],text_anchor_y[16],display_text_fmt[256],fps_fmt[32],time_fmt[32];
+	TCHAR font_red[16], font_green[16], font_blue[16], font_alpha[16];
+	TCHAR font_shadow_red[16], font_shadow_green[16], font_shadow_blue[16], font_shadow_alpha[16], font_shadow_distance[16];
+	int font_weight,period_frames;
+	DirectX::XMVECTOR calcColor, calcShadowColor;
+	DirectX::XMFLOAT2 calcShadowPos;
 public:
 	D2DCustomPresent():pContext(nullptr),t1(0),t2(0),fcount(0)
 	{
@@ -47,9 +58,42 @@ public:
 		resloader.SetSwapChain(pSC);
 		pDevice->GetImmediateContext(&pContext);
 		spriteBatch = std::make_unique<DirectX::SpriteBatch>(pContext);
-		C(resloader.LoadFontFromSystem(spriteFont, 1024, 1024, L"宋体", 48, D2D1::ColorF(D2D1::ColorF::White), DWRITE_FONT_WEIGHT_REGULAR));
-		textpos.x = textpos.y = 0.0f;
-		textanchorpos.x = textanchorpos.y = 0.0f;
+
+		TCHAR szConfPath[MAX_PATH];
+		GetDLLPath(szConfPath, ARRAYSIZE(szConfPath));
+		lstrcpy(wcsrchr(szConfPath, '.'), TEXT(".ini"));
+#define GetInitConfStr(key,def) GetPrivateProfileString(TEXT("Init"),TEXT(_STRINGIZE(key)),def,key,ARRAYSIZE(key),szConfPath)
+#define GetInitConfInt(key,def) key=GetPrivateProfileInt(TEXT("Init"),TEXT(_STRINGIZE(key)),def,szConfPath)
+#define F(_i_str) (float)_wtof(_i_str)
+		GetInitConfStr(font_name, TEXT("宋体"));
+		GetInitConfStr(font_size, TEXT("48"));
+		GetInitConfStr(font_red, TEXT("1"));
+		GetInitConfStr(font_green, TEXT("1"));
+		GetInitConfStr(font_blue, TEXT("0"));
+		GetInitConfStr(font_alpha, TEXT("1"));
+		GetInitConfStr(font_shadow_red, TEXT("0.5"));
+		GetInitConfStr(font_shadow_green, TEXT("0.5"));
+		GetInitConfStr(font_shadow_blue, TEXT("0"));
+		GetInitConfStr(font_shadow_alpha, TEXT("1"));
+		GetInitConfStr(font_shadow_distance, TEXT("2"));
+		GetInitConfInt(font_weight, 400);
+		GetInitConfStr(text_x, TEXT("0"));
+		GetInitConfStr(text_y, TEXT("0"));
+		GetInitConfStr(text_anchor_x, TEXT("0"));
+		GetInitConfStr(text_anchor_y, TEXT("0"));
+		GetInitConfInt(period_frames, 60);
+		GetInitConfStr(time_fmt, TEXT("%H:%M:%S"));
+		GetInitConfStr(fps_fmt, TEXT("FPS:%3d"));
+		GetInitConfStr(display_text_fmt, TEXT("{fps}"));
+
+		C(resloader.LoadFontFromSystem(spriteFont, 1024, 1024, font_name, F(font_size), D2D1::ColorF(D2D1::ColorF::White), (DWRITE_FONT_WEIGHT)font_weight));
+		textpos.x = F(text_x);
+		textpos.y = F(text_y);
+		textanchorpos.x = F(text_anchor_x);
+		textanchorpos.y = F(text_anchor_y);
+		calcShadowPos = DirectX::SimpleMath::Vector2(textpos.x + F(font_shadow_distance), textpos.y + F(font_shadow_distance));
+		calcColor = DirectX::XMLoadFloat4(&DirectX::XMFLOAT4(F(font_red), F(font_green), F(font_blue), F(font_alpha)));
+		calcShadowColor = DirectX::XMLoadFloat4(&DirectX::XMFLOAT4(F(font_shadow_red), F(font_shadow_green), F(font_shadow_blue), F(font_shadow_alpha)));
 		return TRUE;
 	}
 	void Uninit()
@@ -61,12 +105,21 @@ public:
 	{
 		if (fcount--==0)
 		{
-			fcount = 60;
+			fcount = period_frames;
 			t1 = t2;
 			t2 = GetTickCount();
 			if (t1 == t2)
 				t1--;
-			wsprintf(fpstext, TEXT("FPS:%3d"), 60000 / (t2 - t1));//注意wsprintf不支持浮点数格式化
+			current_fps = period_frames * 1000 / (t2 - t1);
+			wsprintf(fps_text, fps_fmt, current_fps);//注意wsprintf不支持浮点数格式化
+			time_t t1 = time(NULL);
+			tm tm1;
+			localtime_s(&tm1, &t1);
+			wcsftime(time_text, ARRAYSIZE(time_text), time_fmt, &tm1);
+			display_text = display_text_fmt;
+			display_text.replace(display_text.find(TEXT("\\n")), 2, TEXT("\n"));
+			display_text.replace(display_text.find(TEXT("{fps}")), 5, fps_text);
+			display_text.replace(display_text.find(TEXT("{time}")), 6, time_text);
 		}
 		//使用SpriteBatch会破坏之前的渲染器状态并且不会自动保存和恢复原状态，画图前应先保存原来的状态，完成后恢复
 		//参考：https://github.com/Microsoft/DirectXTK/wiki/SpriteBatch#state-management
@@ -100,8 +153,8 @@ public:
 #pragma endregion
 #pragma region 用SpriteBatch绘制
 		spriteBatch->Begin();
-		spriteFont->DrawString(spriteBatch.get(), fpstext, DirectX::SimpleMath::Vector2(textpos.x + 2.0f, textpos.y + 2.0f), DirectX::Colors::Gray, 0.0f, textanchorpos);
-		spriteFont->DrawString(spriteBatch.get(), fpstext, textpos, DirectX::Colors::White, 0.0f, textanchorpos);
+		spriteFont->DrawString(spriteBatch.get(), display_text.c_str(), calcShadowPos, calcShadowColor, 0.0f, textanchorpos);
+		spriteFont->DrawString(spriteBatch.get(), display_text.c_str(), textpos, calcColor, 0.0f, textanchorpos);
 		spriteBatch->End();
 #pragma endregion
 #pragma region 恢复原来的状态

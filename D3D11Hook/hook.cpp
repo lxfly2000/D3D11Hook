@@ -7,6 +7,12 @@
 
 typedef HRESULT(__stdcall*PFIDXGISwapChain_Present)(IDXGISwapChain*, UINT, UINT);
 static PFIDXGISwapChain_Present pfPresent = nullptr, pfOriginalPresent = nullptr;
+static HMODULE hDllModule;
+
+DWORD GetDLLPath(LPTSTR path, DWORD max_length)
+{
+	return GetModuleFileName(hDllModule, path, max_length);
+}
 
 //Present是STDCALL调用方式，只需把THIS指针放在第一项就可按非成员函数调用
 HRESULT __stdcall HookedIDXGISwapChain_Present(IDXGISwapChain* p, UINT SyncInterval, UINT Flags)
@@ -86,6 +92,7 @@ DWORD WINAPI TInitHook(LPVOID param)
 
 BOOL WINAPI DllMain(HINSTANCE hInstDll, DWORD fdwReason, LPVOID lpvReserved)
 {
+	hDllModule = hInstDll;
 	switch (fdwReason)
 	{
 	case DLL_PROCESS_ATTACH:
