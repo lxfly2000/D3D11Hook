@@ -117,9 +117,15 @@ public:
 			localtime_s(&tm1, &t1);
 			wcsftime(time_text, ARRAYSIZE(time_text), time_fmt, &tm1);
 			display_text = display_text_fmt;
-			display_text.replace(display_text.find(TEXT("\\n")), 2, TEXT("\n"));
-			display_text.replace(display_text.find(TEXT("{fps}")), 5, fps_text);
-			display_text.replace(display_text.find(TEXT("{time}")), 6, time_text);
+			size_t pos = display_text.find(TEXT("\\n"));
+			if (pos != std::wstring::npos)
+				display_text.replace(pos, 2, TEXT("\n"));
+			pos = display_text.find(TEXT("{fps}"));
+			if (pos != std::wstring::npos)
+				display_text.replace(pos, 5, fps_text);
+			pos = display_text.find(TEXT("{time}"));
+			if (pos != std::wstring::npos)
+				display_text.replace(pos, 6, time_text);
 		}
 		//使用SpriteBatch会破坏之前的渲染器状态并且不会自动保存和恢复原状态，画图前应先保存原来的状态，完成后恢复
 		//参考：https://github.com/Microsoft/DirectXTK/wiki/SpriteBatch#state-management
