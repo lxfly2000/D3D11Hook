@@ -23,14 +23,15 @@ private:
 	unsigned t1, t2, fcount;
 	std::wstring display_text;
 	int current_fps;
-	TCHAR time_text[32], fps_text[32];
+	TCHAR time_text[32], fps_text[32], width_text[32], height_text[32];
 
-	TCHAR font_name[256], font_size[16],text_x[16],text_y[16],text_align[16],text_valign[16],display_text_fmt[256],fps_fmt[32],time_fmt[32];
+	TCHAR font_name[256], font_size[16],text_x[16],text_y[16],text_align[16],text_valign[16],display_text_fmt[256],fps_fmt[32],time_fmt[32], width_fmt[32], height_fmt[32];
 	TCHAR font_red[16], font_green[16], font_blue[16], font_alpha[16];
 	TCHAR font_shadow_red[16], font_shadow_green[16], font_shadow_blue[16], font_shadow_alpha[16], font_shadow_distance[16];
 	int font_weight,period_frames;
 	DirectX::XMVECTOR calcColor, calcShadowColor;
 	DirectX::XMFLOAT2 calcShadowPos;
+	DXGI_SWAP_CHAIN_DESC sc_desc;
 public:
 	D2DCustomPresent():pContext(nullptr),t1(0),t2(0),fcount(0)
 	{
@@ -84,10 +85,11 @@ public:
 		GetInitConfInt(period_frames, 60);
 		GetInitConfStr(time_fmt, TEXT("%H:%M:%S"));
 		GetInitConfStr(fps_fmt, TEXT("FPS:%3d"));
+		GetInitConfStr(width_fmt, TEXT("%d"));
+		GetInitConfStr(height_fmt, TEXT("%d"));
 		GetInitConfStr(display_text_fmt, TEXT("{fps}"));
 
 		C(resloader.LoadFontFromSystem(spriteFont, 1024, 1024, font_name, F(font_size), D2D1::ColorF(D2D1::ColorF::White), (DWRITE_FONT_WEIGHT)font_weight));
-		DXGI_SWAP_CHAIN_DESC sc_desc;
 		C(pSC->GetDesc(&sc_desc));
 		float fWidth = (float)sc_desc.BufferDesc.Width, fHeight = (float)sc_desc.BufferDesc.Height;
 		textpos.x = F(text_x)*fWidth;
@@ -96,18 +98,34 @@ public:
 			textanchorpos_x = 1.0f;
 		else if (lstrcmpi(text_align, TEXT("center")) == 0)
 			textanchorpos_x = 0.5f;
-		else
+		else if (lstrcmpi(text_align, TEXT("left")) == 0)
 			textanchorpos_x = 0.0f;
+		else
+			textanchorpos_x = F(text_align);
 		if (lstrcmpi(text_valign, TEXT("bottom")) == 0)
 			textanchorpos_y = 1.0f;
 		else if (lstrcmpi(text_valign, TEXT("center")) == 0)
 			textanchorpos_y = 0.5f;
-		else
+		else if (lstrcmpi(text_valign, TEXT("top")) == 0)
 			textanchorpos_y = 0.0f;
+		else
+			textanchorpos_y = F(text_valign);
 		calcShadowPos = DirectX::SimpleMath::Vector2(textpos.x + F(font_shadow_distance), textpos.y + F(font_shadow_distance));
 		calcColor = DirectX::XMLoadFloat4(&DirectX::XMFLOAT4(F(font_red), F(font_green), F(font_blue), F(font_alpha)));
 		calcShadowColor = DirectX::XMLoadFloat4(&DirectX::XMFLOAT4(F(font_shadow_red), F(font_shadow_green), F(font_shadow_blue), F(font_shadow_alpha)));
 		return TRUE;
+	}
+	void CalcRect(IDXGISwapChain*pSC, UINT BufferCount, UINT width, UINT height, DXGI_FORMAT NewFormat, UINT SwapChainFlags)
+	{
+		sc_desc.BufferCount = BufferCount;
+		sc_desc.BufferDesc.Width = width;
+		sc_desc.BufferDesc.Height = height;
+		sc_desc.BufferDesc.Format = NewFormat;
+		sc_desc.Flags = SwapChainFlags;
+		float fWidth = (float)sc_desc.BufferDesc.Width, fHeight = (float)sc_desc.BufferDesc.Height;
+		textpos.x = F(text_x)*fWidth;
+		textpos.y = F(text_y)*fHeight;
+		calcShadowPos = DirectX::SimpleMath::Vector2(textpos.x + F(font_shadow_distance), textpos.y + F(font_shadow_distance));
 	}
 	void Uninit()
 	{
@@ -129,6 +147,8 @@ public:
 			tm tm1;
 			localtime_s(&tm1, &t1);
 			wcsftime(time_text, ARRAYSIZE(time_text), time_fmt, &tm1);
+			wsprintf(width_text, width_fmt, sc_desc.BufferDesc.Width);
+			wsprintf(height_text, height_fmt, sc_desc.BufferDesc.Height);
 			display_text = display_text_fmt;
 			size_t pos = display_text.find(TEXT("\\n"));
 			if (pos != std::wstring::npos)
@@ -139,6 +159,12 @@ public:
 			pos = display_text.find(TEXT("{time}"));
 			if (pos != std::wstring::npos)
 				display_text.replace(pos, 6, time_text);
+			pos = display_text.find(TEXT("{width}"));
+			if (pos != std::wstring::npos)
+				display_text.replace(pos, 7, width_text);
+			pos = display_text.find(TEXT("{height}"));
+			if (pos != std::wstring::npos)
+				display_text.replace(pos, 8, height_text);
 		}
 		//使用SpriteBatch会破坏之前的渲染器状态并且不会自动保存和恢复原状态，画图前应先保存原来的状态，完成后恢复
 		//参考：https://github.com/Microsoft/DirectXTK/wiki/SpriteBatch#state-management
@@ -205,4 +231,10 @@ void CustomPresent(IDXGISwapChain *pSC)
 		cp[pSC].Init(pSC);
 	}
 	cp[pSC].Draw();
+}
+
+void CustomResizeBuffers(IDXGISwapChain* p, UINT BufferCount, UINT Width, UINT Height, DXGI_FORMAT NewFormat, UINT SwapChainFlags)
+{
+	if (cp.find(p) != cp.end())
+		cp[p].CalcRect(p,BufferCount,Width, Height,NewFormat,SwapChainFlags);
 }

@@ -6,7 +6,9 @@
 #include"custom_present.h"
 
 typedef HRESULT(__stdcall*PFIDXGISwapChain_Present)(IDXGISwapChain*, UINT, UINT);
+typedef HRESULT(__stdcall* PFIDXGISwapChain_ResizeBuffers)(IDXGISwapChain*,UINT, UINT, UINT, DXGI_FORMAT, UINT);
 static PFIDXGISwapChain_Present pfPresent = nullptr, pfOriginalPresent = nullptr;
+static PFIDXGISwapChain_ResizeBuffers pfResizeBuffers = nullptr, pfOriginalResizeBuffers = nullptr;
 static HMODULE hDllModule;
 
 DWORD GetDLLPath(LPTSTR path, DWORD max_length)
@@ -22,7 +24,13 @@ HRESULT __stdcall HookedIDXGISwapChain_Present(IDXGISwapChain* p, UINT SyncInter
 	return pfOriginalPresent(p, SyncInterval, Flags);
 }
 
-PFIDXGISwapChain_Present GetPresentVAddr()
+HRESULT __stdcall HookedIDXGISwapChain_ResizeBuffers(IDXGISwapChain*p,UINT BufferCount, UINT Width, UINT Height, DXGI_FORMAT NewFormat, UINT SwapChainFlags)
+{
+	CustomResizeBuffers(p,BufferCount, Width, Height, NewFormat, SwapChainFlags);
+	return pfOriginalResizeBuffers(p, BufferCount, Width, Height, NewFormat, SwapChainFlags);
+}
+
+void GetPresentVAddr(PFIDXGISwapChain_Present*pPresent,PFIDXGISwapChain_ResizeBuffers*pResizeBuffers)
 {
 	ID3D11Device *pDevice;
 	D3D_FEATURE_LEVEL useLevel;
@@ -53,22 +61,28 @@ PFIDXGISwapChain_Present GetPresentVAddr()
 		&sc_desc, &pSC, &pDevice, &useLevel, &pContext);
 	//因为相同类的虚函数是共用的，所以只需创建一个该类的对象，通过指针就能获取到函数地址
 	//Present在VTable[8]的位置
-	INT_PTR p = reinterpret_cast<INT_PTR*>(reinterpret_cast<INT_PTR*>(pSC)[0])[8];
+	INT_PTR pP = reinterpret_cast<INT_PTR*>(reinterpret_cast<INT_PTR*>(pSC)[0])[8];
+	INT_PTR pRB = reinterpret_cast<INT_PTR*>(reinterpret_cast<INT_PTR*>(pSC)[0])[13];
+	*pPresent=reinterpret_cast<PFIDXGISwapChain_Present>(pP);
+	*pResizeBuffers = reinterpret_cast<PFIDXGISwapChain_ResizeBuffers>(pRB);
 	pSC->Release();
 	pContext->Release();
 	pDevice->Release();
-	return reinterpret_cast<PFIDXGISwapChain_Present>(p);
 }
 
 //导出以方便在没有DllMain时调用
 extern "C" __declspec(dllexport) BOOL StartHook()
 {
-	pfPresent = reinterpret_cast<PFIDXGISwapChain_Present>(GetPresentVAddr());
+	GetPresentVAddr(&pfPresent,&pfResizeBuffers);
 	if (MH_Initialize() != MH_OK)
 		return FALSE;
 	if (MH_CreateHook(pfPresent, HookedIDXGISwapChain_Present, reinterpret_cast<void**>(&pfOriginalPresent)) != MH_OK)
 		return FALSE;
+	if (MH_CreateHook(pfResizeBuffers, HookedIDXGISwapChain_ResizeBuffers, reinterpret_cast<void**>(&pfOriginalResizeBuffers)) != MH_OK)
+		return FALSE;
 	if (MH_EnableHook(pfPresent) != MH_OK)
+		return FALSE;
+	if (MH_EnableHook(pfResizeBuffers) != MH_OK)
 		return FALSE;
 	return TRUE;
 }
@@ -76,7 +90,11 @@ extern "C" __declspec(dllexport) BOOL StartHook()
 //导出以方便在没有DllMain时调用
 extern "C" __declspec(dllexport) BOOL StopHook()
 {
+	if (MH_DisableHook(pfResizeBuffers) != MH_OK)
+		return FALSE;
 	if (MH_DisableHook(pfPresent) != MH_OK)
+		return FALSE;
+	if (MH_RemoveHook(pfResizeBuffers) != MH_OK)
 		return FALSE;
 	if (MH_RemoveHook(pfPresent) != MH_OK)
 		return FALSE;

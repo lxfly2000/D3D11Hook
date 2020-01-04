@@ -157,10 +157,10 @@
     <ClInclude Include="resource.h" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\DirectXTex\DirectXTex\DirectXTex_Desktop_2017.vcxproj">
+    <ProjectReference Include="..\DirectXTex\DirectXTex\DirectXTex_Desktop_2019.vcxproj">
       <Project>{371b9fa9-4c90-4ac6-a123-aced756d6c77}</Project>
     </ProjectReference>
-    <ProjectReference Include="..\DirectXTK\DirectXTK_Desktop_2017.vcxproj">
+    <ProjectReference Include="..\DirectXTK\DirectXTK_Desktop_2019.vcxproj">
       <Project>{e0b52ae7-e160-4d32-bf3f-910b785e5a8e}</Project>
     </ProjectReference>
     <ProjectReference Include="..\minhook\build\VC15\libMinHook.vcxproj">
