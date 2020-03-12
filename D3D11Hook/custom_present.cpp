@@ -1,6 +1,7 @@
 #include"custom_present.h"
 #include"ResLoader.h"
 #include"..\DirectXTK\Inc\SimpleMath.h"
+#include"keyol.h"
 #include<map>
 #include<string>
 #include<ctime>
@@ -10,6 +11,7 @@
 #else
 #define C(x) x
 #endif
+
 
 class D2DCustomPresent
 {
@@ -32,6 +34,7 @@ private:
 	DirectX::XMVECTOR calcColor, calcShadowColor;
 	DirectX::XMFLOAT2 calcShadowPos;
 	DXGI_SWAP_CHAIN_DESC sc_desc;
+	static WNDPROC oldWndProc;
 public:
 	D2DCustomPresent():pContext(nullptr),t1(0),t2(0),fcount(0)
 	{
@@ -50,6 +53,10 @@ public:
 	~D2DCustomPresent()
 	{
 		Uninit();
+	}
+	static LRESULT CALLBACK ExtraProcess(HWND h, UINT m, WPARAM w, LPARAM l)
+	{
+		return KeyOverlayExtraProcess(oldWndProc, h, m, w, l);
 	}
 	BOOL Init(IDXGISwapChain*pSC)
 	{
@@ -113,6 +120,11 @@ public:
 		calcShadowPos = DirectX::SimpleMath::Vector2(textpos.x + F(font_shadow_distance), textpos.y + F(font_shadow_distance));
 		calcColor = DirectX::XMLoadFloat4(&DirectX::XMFLOAT4(F(font_red), F(font_green), F(font_blue), F(font_alpha)));
 		calcShadowColor = DirectX::XMLoadFloat4(&DirectX::XMFLOAT4(F(font_shadow_red), F(font_shadow_green), F(font_shadow_blue), F(font_shadow_alpha)));
+
+		if (!KeyOverlayInit(sc_desc.OutputWindow, pDevice, pContext))
+			return FALSE;
+		oldWndProc = (WNDPROC)GetWindowLongPtr(sc_desc.OutputWindow, GWLP_WNDPROC);
+		SetWindowLongPtr(sc_desc.OutputWindow, GWLP_WNDPROC, (LONG_PTR)ExtraProcess);
 		return TRUE;
 	}
 	void CalcRect(IDXGISwapChain*pSC, UINT BufferCount, UINT width, UINT height, DXGI_FORMAT NewFormat, UINT SwapChainFlags)
@@ -129,7 +141,12 @@ public:
 	}
 	void Uninit()
 	{
-		if(pContext)pContext->Release();
+		SetWindowLongPtr(sc_desc.OutputWindow, GWLP_WNDPROC, (LONG_PTR)oldWndProc);
+		if (pContext)
+		{
+			KeyOverlayUninit();
+			pContext->Release();
+		}
 		resloader.Uninit();
 	}
 	void Draw()
@@ -166,6 +183,7 @@ public:
 			if (pos != std::wstring::npos)
 				display_text.replace(pos, 8, height_text);
 		}
+		KeyOverlayDraw();
 		//使用SpriteBatch会破坏之前的渲染器状态并且不会自动保存和恢复原状态，画图前应先保存原来的状态，完成后恢复
 		//参考：https://github.com/Microsoft/DirectXTK/wiki/SpriteBatch#state-management
 		//https://github.com/ocornut/imgui/blob/master/examples/imgui_impl_dx11.cpp#L130
@@ -220,6 +238,8 @@ public:
 #pragma endregion
 	}
 };
+
+WNDPROC D2DCustomPresent::oldWndProc = nullptr;
 
 static std::map<IDXGISwapChain*, D2DCustomPresent> cp;
 
