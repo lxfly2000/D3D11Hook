@@ -16,34 +16,25 @@
 
 #define MAX_TEXTURE_DIMENSION 8192//参考：https://msdn.microsoft.com/library/windows/desktop/ff476876.aspx
 
-#ifdef _DEBUG
-HRESULT _debug_hr = S_OK;
-#define C(sth) _debug_hr=sth;if(FAILED(_debug_hr))return _debug_hr
-#else
-#define C(sth) sth
-#endif
+HRESULT _check_hr = S_OK;
+#define C(sth) _check_hr=sth;if(FAILED(_check_hr))return _check_hr
 
 using Microsoft::WRL::ComPtr;
 using namespace DirectX;
 
-ResLoader::ResLoader()
+int PointToDip(int pointsize)
 {
-	Uninit();
+	//https://www.codeproject.com/articles/376597/outline-text-with-directwrite#source
+	//原则上第二个参数应为GetDeviceCaps(GetDC(NULL), LOGPIXELSX或LOGPIXELSY),但此处是用于游戏，且游戏通常不考虑DPI，因此直接指定96
+	return MulDiv(pointsize, USER_DEFAULT_SCREEN_DPI, 72);
 }
 
-
-void ResLoader::Init(ID3D11Device *pdevice)
+float PointToDip(float pointsize)
 {
-	m_pd3dDevice = pdevice;
+	return pointsize * USER_DEFAULT_SCREEN_DPI / 72.0f;
 }
 
-void ResLoader::Uninit()
-{
-	m_pd3dDevice = nullptr;
-}
-
-HRESULT ResLoader::LoadTextureFromFile(LPCWSTR fpath, ID3D11ShaderResourceView **pTex, int *pw, int *ph,
-	bool convertpmalpha)
+HRESULT LoadTextureFromFile(ID3D11Device*device,LPWSTR fpath, ID3D11ShaderResourceView **pTex, int *pw, int *ph, bool convertpmalpha)
 {
 	ComPtr<ID3D11Resource> tmpRes;
 	if (convertpmalpha)
@@ -54,12 +45,12 @@ HRESULT ResLoader::LoadTextureFromFile(LPCWSTR fpath, ID3D11ShaderResourceView *
 		C(PremultiplyAlpha(image.GetImages(), image.GetImageCount(), image.GetMetadata(), NULL, pmaimage));
 		C(SaveToWICMemory(pmaimage.GetImages(), pmaimage.GetImageCount(), WIC_FLAGS_NONE, GUID_ContainerFormatPng,
 			pmaimageres));
-		C(CreateWICTextureFromMemory(m_pd3dDevice, (BYTE*)pmaimageres.GetBufferPointer(), pmaimageres.GetBufferSize(),
+		C(CreateWICTextureFromMemory(device, (BYTE*)pmaimageres.GetBufferPointer(), pmaimageres.GetBufferSize(),
 			&tmpRes, pTex));
 	}
 	else
 	{
-		C(CreateWICTextureFromFile(m_pd3dDevice, fpath, &tmpRes, pTex));
+		C(CreateWICTextureFromFile(device, fpath, &tmpRes, pTex));
 	}
 	ComPtr<ID3D11Texture2D> tmpTex2D;
 	C(tmpRes.As(&tmpTex2D));
@@ -206,9 +197,9 @@ HRESULT WicBitmapConvertPremultiplyAlpha(IWICBitmap *wicbitmap, ComPtr<IWICBitma
 }
 
 //COM函数
-HRESULT ResLoader::LoadFontFromSystem(std::unique_ptr<SpriteFont> &outSF, unsigned textureWidth, unsigned textureHeight,
-	LPCWSTR fontName, float fontSize, const D2D1_COLOR_F &fontColor, DWRITE_FONT_WEIGHT fontWeight,
-	LPCWSTR pszCharacters, float pxBetweenChar, bool convertpmalpha)
+HRESULT LoadFontFromSystem(ID3D11Device*device,std::unique_ptr<SpriteFont> &outSF, unsigned textureWidth, unsigned textureHeight,
+	LPWSTR fontName, float fontSize, const D2D1_COLOR_F &fontColor, DWRITE_FONT_WEIGHT fontWeight,
+	wchar_t *pszCharacters, float pxBetweenChar, bool convertpmalpha)
 {
 	//这个字体加载真心是恶心得要死，以前有D3DX的时候还好点，到现在微软直接把字体支持完全给抛弃了！
 	ID2D1Factory *d2dfactory;
@@ -234,7 +225,7 @@ HRESULT ResLoader::LoadFontFromSystem(std::unique_ptr<SpriteFont> &outSF, unsign
 	C(fontRT->CreateSolidColorBrush(fontColor, &fontColorBrush));
 	C(DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED, __uuidof(dwfactory), (IUnknown**)&dwfactory));
 	C(dwfactory->CreateTextFormat(fontName, NULL, fontWeight, DWRITE_FONT_STYLE_NORMAL, DWRITE_FONT_STRETCH_NORMAL,
-		fontSize, L"", &textformat));
+		PointToDip(fontSize), L"", &textformat));
 	C(textformat->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_LEADING));
 	C(textformat->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_NEAR));
 	//绘制
@@ -247,17 +238,22 @@ HRESULT ResLoader::LoadFontFromSystem(std::unique_ptr<SpriteFont> &outSF, unsign
 	SpriteFont::Glyph eachglyph;
 	ZeroMemory(&eachglyph, sizeof eachglyph);
 	float chHeight = 0.0f;//每行最大字符高度
-	std::wstring usingCharacters;
-	for (wchar_t i = ' '; i < 128; i++)
-		usingCharacters.append(1, i);
+	wchar_t *usingCharacters;
+	int usingChSize;
 	if (pszCharacters)
 	{
-		usingCharacters.append(pszCharacters);
-		std::sort(usingCharacters.begin(), usingCharacters.end());
-		usingCharacters.erase(std::unique(usingCharacters.begin(), usingCharacters.end()), usingCharacters.end());
+		usingCharacters = pszCharacters;
+		usingChSize = lstrlen(usingCharacters);
+	}
+	else
+	{
+		usingChSize = 128 - ' ';
+		usingCharacters = new wchar_t[usingChSize];
+		for (int i = 0; i < usingChSize; i++)
+			usingCharacters[i] = ' ' + i;
 	}
 	fontRT->BeginDraw();
-	for (size_t i = 0; i < usingCharacters.size(); i++)
+	for (int i = 0; i < usingChSize; i++)
 	{
 		eachglyph.Character = usingCharacters[i];
 		str[0] = usingCharacters[i];//DirectXTK不支持代理对，因此把字符直接当成16位数处理就行了。
@@ -284,9 +280,9 @@ HRESULT ResLoader::LoadFontFromSystem(std::unique_ptr<SpriteFont> &outSF, unsign
 		if (drawPos.y + chHeight > textureHeight)return -1;
 		eachglyph.Subrect.left = std::lround(drawPos.x);
 		eachglyph.Subrect.top = std::lround(drawPos.y);
-		//D2D1_DRAW_TEXT_OPTIONS_ENABLE_COLOR_FONT：可绘制彩色文字（绘制彩色文字功能要求系统为Win8.1/10，在Win7中会使D2D区域无法显示）
+		//可绘制彩色文字（绘制彩色文字功能要求系统为Win8.1/10，在Win7中会使D2D区域无法显示）
 		fontRT->DrawText(str, lstrlen(str), textformat, D2D1::RectF(drawPos.x + ovhMet.left, drawPos.y,
-			(float)textureWidth, (float)textureHeight), fontColorBrush, D2D1_DRAW_TEXT_OPTIONS_NONE);
+			(float)textureWidth, (float)textureHeight), fontColorBrush);
 		float chPxWidth = textlayout->GetMaxWidth() + ovhMet.left + ovhMet.right;
 		drawPos.x += chPxWidth;
 		eachglyph.Subrect.right = std::lround(drawPos.x);
@@ -309,6 +305,8 @@ HRESULT ResLoader::LoadFontFromSystem(std::unique_ptr<SpriteFont> &outSF, unsign
 		textlayout->Release();
 	}
 	fontRT->EndDraw();
+	if (!pszCharacters)
+		delete usingCharacters;
 	//由图像生成材质
 	std::unique_ptr<BYTE> membitmap;
 	size_t memsize;
@@ -329,12 +327,12 @@ HRESULT ResLoader::LoadFontFromSystem(std::unique_ptr<SpriteFont> &outSF, unsign
 		C(PremultiplyAlpha(teximage.GetImages(), teximage.GetImageCount(), teximage.GetMetadata(), NULL, pmteximage));
 		C(SaveToWICMemory(pmteximage.GetImages(), pmteximage.GetImageCount(), WIC_FLAGS_NONE, GUID_ContainerFormatPng,
 			pmteximageres));
-		C(CreateWICTextureFromMemory(m_pd3dDevice, (BYTE*)pmteximageres.GetBufferPointer(),
+		C(CreateWICTextureFromMemory(device, (BYTE*)pmteximageres.GetBufferPointer(),
 			pmteximageres.GetBufferSize(), &fontTexture, &fontTextureView));
 	}
 	else
 	{
-		C(CreateWICTextureFromMemory(m_pd3dDevice, membitmap.get(), memsize, &fontTexture, &fontTextureView));
+		C(CreateWICTextureFromMemory(device, membitmap.get(), memsize, &fontTexture, &fontTextureView));
 	}
 	//创建SpriteFont
 	outSF.reset(new SpriteFont(fontTextureView, glyphs.data(), glyphs.size(), chHeight));
@@ -352,19 +350,94 @@ HRESULT ResLoader::LoadFontFromSystem(std::unique_ptr<SpriteFont> &outSF, unsign
 	return S_OK;
 }
 
-HRESULT ResLoader::TakeScreenShotToFile(LPCWSTR fpath)
+HRESULT DrawTextToTexture(ID3D11Device* device, LPWSTR text, ID3D11ShaderResourceView** pTex, int* pw, int* ph,
+	LPWSTR fontName, float fontSize, const D2D1_COLOR_F& fontColor, DWRITE_FONT_WEIGHT fontWeight, bool convertpmalpha)
+{
+	ID2D1Factory* d2dfactory;
+	IWICImagingFactory* wicfactory;
+	IWICBitmap* fontBitmap;
+	ID2D1RenderTarget* fontRT;
+	ID2D1SolidColorBrush* fontColorBrush;
+	IDWriteFactory* dwfactory;
+	IDWriteTextFormat* textformat;
+	IDWriteTextLayout* textlayout;
+	//创建字体
+	C(DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED, __uuidof(dwfactory), (IUnknown**)&dwfactory));
+	C(dwfactory->CreateTextFormat(fontName, NULL, fontWeight, DWRITE_FONT_STYLE_NORMAL, DWRITE_FONT_STRETCH_NORMAL,
+		PointToDip(fontSize), L"", &textformat));
+	C(textformat->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_LEADING));
+	C(textformat->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_NEAR));
+	//计算绘制文字大小
+	DWRITE_TEXT_METRICS textMet;
+	C(dwfactory->CreateTextLayout(text, lstrlen(text), textformat, (float)MAX_TEXTURE_DIMENSION, (float)MAX_TEXTURE_DIMENSION, &textlayout));
+	C(textlayout->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_LEADING));
+	C(textlayout->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_NEAR));
+
+	C(textlayout->GetMetrics(&textMet));
+	//创建D2D
+	C(D2D1CreateFactory(D2D1_FACTORY_TYPE_SINGLE_THREADED, &d2dfactory));
+	//创建图像
+	C(CoCreateInstance(CLSID_WICImagingFactory, NULL, CLSCTX_INPROC_SERVER, IID_IWICImagingFactory, (void**)&wicfactory));
+	C(wicfactory->CreateBitmap((UINT)ceilf(textMet.width), (UINT)ceilf(textMet.height), GUID_WICPixelFormat32bppPBGRA,
+		WICBitmapCacheOnLoad, &fontBitmap));
+	//创建图像的RT
+	C(d2dfactory->CreateWicBitmapRenderTarget(fontBitmap, D2D1::RenderTargetProperties(), &fontRT));
+	//绘制
+	C(fontRT->CreateSolidColorBrush(fontColor, &fontColorBrush));
+	fontRT->BeginDraw();
+
+	//可绘制彩色文字（绘制彩色文字功能要求系统为Win8.1/10，在Win7中会使D2D区域无法显示）
+	fontRT->DrawText(text, lstrlen(text), textformat, D2D1::RectF(0.0f, 0.0f, textMet.width, textMet.height), fontColorBrush);
+	C(fontRT->EndDraw());
+	WICRect wicrect{ 0,0,(int)textMet.width,(int)textMet.height };
+	//由图像生成材质
+	std::unique_ptr<BYTE>membitmap;
+	size_t memsize;
+	C(SaveWicBitmapToMemory(fontBitmap, membitmap, &memsize));
+
+	ComPtr<ID3D11Resource>fontTexture;
+	if (convertpmalpha)
+	{
+		DirectX::ScratchImage teximage, pmteximage;
+		DirectX::Blob pmteximageres;
+		C(LoadFromWICMemory(membitmap.get(), memsize, WIC_FLAGS_NONE, NULL, teximage));
+		C(PremultiplyAlpha(teximage.GetImages(), teximage.GetImageCount(), teximage.GetMetadata(), NULL, pmteximage));
+		C(SaveToWICMemory(pmteximage.GetImages(), pmteximage.GetImageCount(), WIC_FLAGS_NONE, GUID_ContainerFormatPng,
+			pmteximageres));
+		C(CreateWICTextureFromMemory(device, (BYTE*)pmteximageres.GetBufferPointer(),
+			pmteximageres.GetBufferSize(), &fontTexture, pTex));
+	}
+	else
+	{
+		C(CreateWICTextureFromMemory(device, membitmap.get(), memsize, &fontTexture, pTex));
+	}
+	ComPtr<ID3D11Texture2D>tmpTex2D;
+	C(fontTexture.As(&tmpTex2D));
+	CD3D11_TEXTURE2D_DESC tmpDesc;
+	tmpTex2D->GetDesc(&tmpDesc);
+	if (pw)
+		*pw = tmpDesc.Width;
+	if (ph)
+		*ph = tmpDesc.Height;
+	//释放
+	textformat->Release();
+	dwfactory->Release();
+	fontColorBrush->Release();
+	fontRT->Release();
+	fontBitmap->Release();
+	wicfactory->Release();
+	d2dfactory->Release();
+	return S_OK;
+}
+
+HRESULT TakeScreenShotToFile(ID3D11Device*device,IDXGISwapChain* swapChain,LPWSTR fpath)
 {
 	//https://github.com/Microsoft/DirectXTK/wiki/ScreenGrab#examples
 	ComPtr<ID3D11DeviceContext> ctx;
-	m_pd3dDevice->GetImmediateContext(&ctx);
+	device->GetImmediateContext(&ctx);
 	ComPtr<ID3D11Texture2D> texscreen;
-	C(m_pSwapChain->GetBuffer(0, __uuidof(texscreen), (void**)texscreen.GetAddressOf()));
+	C(swapChain->GetBuffer(0, __uuidof(texscreen), (void**)texscreen.GetAddressOf()));
 	return SaveWICTextureToFile(ctx.Get(), texscreen.Get(), GUID_ContainerFormatPng, fpath);
-}
-
-void ResLoader::SetSwapChain(IDXGISwapChain *pswchain)
-{
-	m_pSwapChain = pswchain;
 }
 
 //COM函数
@@ -396,7 +469,7 @@ HRESULT CreateDWTextFormat(ComPtr<IDWriteTextFormat> &textformat,
 {
 	ComPtr<IDWriteFactory> dwfactory;
 	C(DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED, __uuidof(dwfactory), (IUnknown**)&dwfactory));
-	C(dwfactory->CreateTextFormat(fontName, NULL, fontWeight, fontStyle, fontExpand, fontSize, localeName,
+	C(dwfactory->CreateTextFormat(fontName, NULL, fontWeight, fontStyle, fontExpand, PointToDip(fontSize), localeName,
 		textformat.ReleaseAndGetAddressOf()));
 	return S_OK;
 }
@@ -430,14 +503,8 @@ HRESULT CreateDWFontFace(ComPtr<IDWriteFontFace>& fontface, IDWriteTextFormat * 
 	return S_OK;
 }
 
-constexpr float PointToDip(float pointsize)
-{
-	//https://www.codeproject.com/articles/376597/outline-text-with-directwrite#source
-	return pointsize*96.0f / 72.0f;
-}
-
 HRESULT CreateD2DGeometryFromText(ComPtr<ID2D1PathGeometry>& geometry, ID2D1Factory *factory,
-	IDWriteFontFace* pfontface, float fontSize, const wchar_t * text, size_t textlength)
+	IDWriteFontFace* pfontface, IDWriteTextFormat* textformat, const wchar_t * text, size_t textlength)
 {
 	std::vector<UINT32> unicode_ui32;
 	for (size_t i = 0; i < textlength; i++)
@@ -447,7 +514,7 @@ HRESULT CreateD2DGeometryFromText(ComPtr<ID2D1PathGeometry>& geometry, ID2D1Fact
 	C(factory->CreatePathGeometry(geometry.ReleaseAndGetAddressOf()));
 	ID2D1GeometrySink *gs;
 	C(geometry->Open(&gs));
-	C(pfontface->GetGlyphRunOutline(PointToDip(fontSize), gidcs.get(), NULL, NULL,
+	C(pfontface->GetGlyphRunOutline(textformat->GetFontSize(), gidcs.get(), NULL, NULL,
 		static_cast<UINT32>(textlength), FALSE, FALSE, gs));
 	C(gs->Close());
 	gs->Release();
@@ -482,9 +549,11 @@ HRESULT CreateD2DArc(ComPtr<ID2D1PathGeometry> &arc, ID2D1Factory *factory, floa
 	C(arc->Open(sink.ReleaseAndGetAddressOf()));
 	sink->BeginFigure(D2D1::Point2F(r*cosf(DirectX::XMConvertToRadians(startDegree)),
 		r*sinf(DirectX::XMConvertToRadians(startDegree))), D2D1_FIGURE_BEGIN_HOLLOW);
+	//为避免大小弧与同起点到点的歧义，将弧均分成两段保证都是小弧
+	sink->AddArc(D2D1::ArcSegment(D2D1::Point2F(r*cosf(DirectX::XMConvertToRadians((startDegree+endDegree)/2.0f)),
+		r*sinf(DirectX::XMConvertToRadians((startDegree + endDegree) / 2.0f))), D2D1::SizeF(r, r), 0, D2D1_SWEEP_DIRECTION_CLOCKWISE, D2D1_ARC_SIZE_SMALL));
 	sink->AddArc(D2D1::ArcSegment(D2D1::Point2F(r*cosf(DirectX::XMConvertToRadians(endDegree)),
-		r*sinf(DirectX::XMConvertToRadians(endDegree))), D2D1::SizeF(r, r), 0, D2D1_SWEEP_DIRECTION_CLOCKWISE,
-		endDegree - startDegree > 180.0f ? D2D1_ARC_SIZE_LARGE : D2D1_ARC_SIZE_SMALL));
+		r*sinf(DirectX::XMConvertToRadians(endDegree))), D2D1::SizeF(r, r), 0, D2D1_SWEEP_DIRECTION_CLOCKWISE, D2D1_ARC_SIZE_SMALL));
 	sink->EndFigure(D2D1_FIGURE_END_OPEN);
 	C(sink->Close());
 	return S_OK;

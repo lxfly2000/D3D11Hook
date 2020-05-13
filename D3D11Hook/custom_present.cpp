@@ -20,7 +20,6 @@ private:
 	std::unique_ptr<DirectX::SpriteFont> spriteFont;
 	DirectX::SimpleMath::Vector2 textpos;
 	float textanchorpos_x,textanchorpos_y;
-	ResLoader resloader;
 	ID3D11DeviceContext *pContext;
 	unsigned t1, t2, fcount;
 	std::wstring display_text;
@@ -35,6 +34,8 @@ private:
 	DirectX::XMFLOAT2 calcShadowPos;
 	DXGI_SWAP_CHAIN_DESC sc_desc;
 	static WNDPROC oldWndProc;
+	ID3D11Device* m_pDevice;
+	IDXGISwapChain* m_pSC;
 public:
 	D2DCustomPresent():pContext(nullptr),t1(0),t2(0),fcount(0)
 	{
@@ -44,11 +45,12 @@ public:
 		spriteBatch = std::move(other.spriteBatch);
 		spriteFont = std::move(other.spriteFont);
 		textpos = std::move(other.textpos);
-		resloader = std::move(other.resloader);
 		pContext = std::move(other.pContext);
 		t1 = std::move(other.t1);
 		t2 = std::move(other.t2);
 		fcount = std::move(other.fcount);
+		m_pSC = std::move(other.m_pSC);
+		m_pDevice = std::move(other.m_pDevice);
 	}
 	~D2DCustomPresent()
 	{
@@ -60,10 +62,10 @@ public:
 	}
 	BOOL Init(IDXGISwapChain*pSC)
 	{
+		m_pSC = pSC;
 		ID3D11Device *pDevice;
 		C(pSC->GetDevice(__uuidof(ID3D11Device), (void**)&pDevice));//这个不需要在释放时调用Release
-		resloader.Init(pDevice);
-		resloader.SetSwapChain(pSC);
+		m_pDevice = pDevice;
 		pDevice->GetImmediateContext(&pContext);
 		spriteBatch = std::make_unique<DirectX::SpriteBatch>(pContext);
 
@@ -96,7 +98,8 @@ public:
 		GetInitConfStr(height_fmt, TEXT("%d"));
 		GetInitConfStr(display_text_fmt, TEXT("{fps}"));
 
-		C(resloader.LoadFontFromSystem(spriteFont, 1024, 1024, font_name, F(font_size), D2D1::ColorF(D2D1::ColorF::White), (DWRITE_FONT_WEIGHT)font_weight));
+		C(LoadFontFromSystem(m_pDevice,spriteFont, 1024, 1024, font_name, F(font_size),
+			D2D1::ColorF(D2D1::ColorF::White), (DWRITE_FONT_WEIGHT)font_weight));
 		C(pSC->GetDesc(&sc_desc));
 		float fWidth = (float)sc_desc.BufferDesc.Width, fHeight = (float)sc_desc.BufferDesc.Height;
 		textpos.x = F(text_x)*fWidth;
@@ -147,7 +150,6 @@ public:
 			KeyOverlayUninit();
 			pContext->Release();
 		}
-		resloader.Uninit();
 	}
 	void Draw()
 	{

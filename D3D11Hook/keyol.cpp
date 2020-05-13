@@ -71,7 +71,7 @@ BOOL KeyOverlayInit(HWND hwnd, ID3D11Device* pDevice, ID3D11DeviceContext* pCont
 	GetInitConfStr(font_size, TEXT("18"));
 	ImFontGlyphRangesBuilder fgb;
 	static const ImWchar16 char_range[] = { 0x20,0xFF,0x2190,0x2193,0};
-	ImFont* font = io.Fonts->AddFontFromFileTTF(font_path, F(font_size) * ImGui_ImplWin32_GetDpiScaleForHwnd(hwnd),NULL,char_range);
+	ImFont* font = io.Fonts->AddFontFromFileTTF(font_path, F(font_size) * USER_DEFAULT_SCREEN_DPI/72,NULL,char_range);
 	if (!font)
 		return FALSE;
 	TCHAR textColor1_red[16], textColor1_green[16], textColor1_blue[16], textColor1_alpha[16];

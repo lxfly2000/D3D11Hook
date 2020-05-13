@@ -5,32 +5,26 @@
 #include "..\DirectXTK\Inc\SpriteFont.h"
 
 //————————D3D函数————————
-class ResLoader
-{
-public:
-	ResLoader();
-	void Init(ID3D11Device *pdevice);
-	void Uninit();
-	//从文件加载材质图片
-	HRESULT LoadTextureFromFile(LPCWSTR fpath, ID3D11ShaderResourceView **pTex, int *pw, int *ph,
-		bool convertpmalpha = true);
-	//COM函数，加载系统中的字体到字体表，需要手动释放(delete)
-	//pszCharacters：指定使用的字符，UTF16LE编码，如果不指定则为ASCII字符（32～127）
-	//字体大小的单位为DIP（设备无关像素）
-	//pxBetweenChar：指示字符的水平+垂直间距，该参数是为了避免绘制出的字符重合而设置的，不会影响实际显示的间距。
-	//【注意】该字体表加载功能存在字符位置偏移的Bug，如果是ClearType看不出来但是如果字体在特定字号下是以点阵字符
-	//显示时就会非常明显，因此不推荐小字号字体使用。推荐使用Direct2D+DirectWrite排版系统绘制文字等矢量图形。
-	HRESULT LoadFontFromSystem(std::unique_ptr<DirectX::SpriteFont> &outSF, unsigned textureWidth,
-		unsigned textureHeight, LPCWSTR fontName, float fontSize, const D2D1_COLOR_F &fontColor,
-		DWRITE_FONT_WEIGHT fontWeight, LPCWSTR pszCharacters = NULL, float pxBetweenChar = 1.0f,
-		bool convertpmalpha = true);
-	//保存屏幕图像至文件(PNG)
-	HRESULT TakeScreenShotToFile(LPCWSTR fpath);
-	void SetSwapChain(IDXGISwapChain *pswchain);
-private:
-	ID3D11Device *m_pd3dDevice;//仅保存变量，无须释放
-	IDXGISwapChain *m_pSwapChain;//同上
-};
+//从文件加载材质图片
+HRESULT LoadTextureFromFile(ID3D11Device*device,LPWSTR fpath, ID3D11ShaderResourceView **pTex, int *pw, int *ph,
+	bool convertpmalpha = true);
+//COM函数，加载系统中的字体到字体表，需要手动释放(delete)
+//pCharacters：指定使用的字符，UTF16LE编码，如果不指定则为ASCII字符（32～127）
+//注意字符串必须保持增序，必须含有替代字符（默认为“?”，可以用SetDefaultCharacter修改）。
+//字体大小的单位为通常意义的字号
+//pxBetweenChar：指示字符的水平+垂直间距，该参数是为了避免绘制出的字符重合而设置的，不会影响实际显示的间距。
+//【注意】该字体表加载功能存在字符位置偏移的Bug，如果是ClearType看不出来但是如果字体在特定字号下是以点阵字符
+//显示时就会非常明显，因此不推荐小字号字体使用。推荐使用Direct2D+DirectWrite排版系统绘制文字等矢量图形。
+HRESULT LoadFontFromSystem(ID3D11Device* device, std::unique_ptr<DirectX::SpriteFont> &outSF, unsigned textureWidth,
+	unsigned textureHeight, LPWSTR fontName, float fontSize, const D2D1_COLOR_F &fontColor,
+	DWRITE_FONT_WEIGHT fontWeight, wchar_t *pszCharacters = NULL, float pxBetweenChar = 1.0f,
+	bool convertpmalpha = true);
+//字体大小的单位为通常意义的字号
+HRESULT DrawTextToTexture(ID3D11Device* device, LPWSTR text, ID3D11ShaderResourceView** pTex, int* pw, int* ph,
+	LPWSTR fontName, float fontSize, const D2D1_COLOR_F& fontColor,
+	DWRITE_FONT_WEIGHT fontWeight, bool convertpmalpha = true);
+//保存屏幕图像至文件(PNG)
+HRESULT TakeScreenShotToFile(ID3D11Device* device, IDXGISwapChain*swapChain,LPWSTR fpath);
 
 //COM函数，保存图像至文件(PNG)
 HRESULT SaveWicBitmapToFile(IWICBitmap *wicbitmap, LPCWSTR path);
@@ -64,7 +58,7 @@ HRESULT CreateDWFontFace(Microsoft::WRL::ComPtr<IDWriteFontFace> &fontface, IDWr
 //factory必须指定为与渲染目标使用相同的对象。
 //【注意】该函数不支持换行符。
 HRESULT CreateD2DGeometryFromText(Microsoft::WRL::ComPtr<ID2D1PathGeometry> &geometry, ID2D1Factory *factory,
-	IDWriteFontFace *pfontface, float fontSize, const wchar_t *text, size_t textlength);
+	IDWriteFontFace *pfontface, IDWriteTextFormat* textformat, const wchar_t *text, size_t textlength);
 //创建一个仅一次变化的渐变笔刷。
 //【注意】该函数中的坐标以所绘图形的左下角为原点，向右为X轴正方向，向上为Y轴正方向。
 HRESULT CreateD2DLinearGradientBrush(Microsoft::WRL::ComPtr<ID2D1LinearGradientBrush> &lgBrush, ID2D1RenderTarget *rt,
